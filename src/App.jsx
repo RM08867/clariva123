@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
 import TextDisplay from './components/TextDisplay';
@@ -19,6 +19,11 @@ function ReaderPage() {
     const [talkModalOpen, setTalkModalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [statusMsg, setStatusMsg] = useState('');
+
+    useEffect(() => {
+        const currentVisits = parseInt(localStorage.getItem('visits')) || 0;
+        localStorage.setItem('visits', currentVisits + 1);
+    }, []);
     const formattedContentRef = useRef(null);
 
     const handleReset = useCallback(() => {

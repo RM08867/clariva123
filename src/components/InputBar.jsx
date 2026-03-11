@@ -19,6 +19,9 @@ export default function InputBar({
     };
 
     const handleTTS = async () => {
+        const ttsCount = parseInt(localStorage.getItem('tts')) || 0;
+        localStorage.setItem('tts', ttsCount + 1);
+
         setLoading(true);
         setStatus('Generating voice...');
         try {
@@ -152,7 +155,11 @@ export default function InputBar({
                 <button className="tts-btn" onClick={handleTTS} title="Text to Speech">
                     <Volume2 />
                 </button>
-                <button className="mic-btn" onClick={onOpenTalkModal} title="Voice Input">
+                <button className="mic-btn" onClick={() => {
+                    const sttCount = parseInt(localStorage.getItem('stt')) || 0;
+                    localStorage.setItem('stt', sttCount + 1);
+                    onOpenTalkModal();
+                }} title="Voice Input">
                     <Mic />
                 </button>
                 <button className="settings-btn" onClick={onOpenDrawer} title="Settings">

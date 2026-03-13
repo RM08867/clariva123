@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { FilePlus, Camera, Image, Volume2, Mic, Settings, Send } from 'lucide-react';
-import { generateTTS, extractTextFromImage, extractTextFromPdf } from '../utils/api';
+import { extractTextFromImage, extractTextFromPdf } from '../utils/api';
 
 export default function InputBar({
     inputText,
@@ -8,6 +8,7 @@ export default function InputBar({
     onSend,
     onOpenDrawer,
     onOpenTalkModal,
+    onOpenSpeakerModal,
     setLoading,
     setStatus,
 }) {
@@ -26,24 +27,6 @@ export default function InputBar({
             if (inputText.trim()) {
                 onSend();
             }
-        }
-    };
-
-    const handleTTS = async () => {
-        const ttsCount = parseInt(localStorage.getItem('tts')) || 0;
-        localStorage.setItem('tts', ttsCount + 1);
-
-        setLoading(true);
-        setStatus('Generating voice...');
-        try {
-            const audio = await generateTTS(inputText);
-            audio.play();
-        } catch (err) {
-            console.error('TTS Error:', err);
-            setStatus('Voice generation failed');
-        } finally {
-            setLoading(false);
-            setTimeout(() => setStatus(''), 2000);
         }
     };
 
@@ -177,7 +160,7 @@ export default function InputBar({
             </button>
 
             <div className="input-action-group">
-                <button className="tts-btn" onClick={handleTTS} title="Text to Speech">
+                <button className="tts-btn" onClick={onOpenSpeakerModal} title="Text to Speech">
                     <Volume2 />
                 </button>
                 <button className="mic-btn" onClick={() => {

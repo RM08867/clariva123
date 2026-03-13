@@ -1,7 +1,19 @@
 import React from 'react';
 import { DATASET } from '../data/dataset';
 
-export default function TextDisplay({ preferences, inputText, contentRef }) {
+export default function TextDisplay({
+    preferences,
+    inputText,
+    contentRef,
+    onWordClick,
+    wordSelectMode,
+    lineSelectMode,
+    selectedLineIdx,
+    onLineClick,
+}) {
+    // Split text into lines (by newline), then each line into words
+    const lines = inputText.split('\n');
+
     const style = {
         fontFamily: preferences.font,
         fontSize: preferences.font_size + 'px',
@@ -36,33 +48,61 @@ export default function TextDisplay({ preferences, inputText, contentRef }) {
         );
     };
 
-    const renderWord = (word, wordIdx) => {
-        if (!word) return null;
-        return (
-            <React.Fragment key={wordIdx}>
-                <span className="inline-block">
-                    {word.split('').map((char, charIdx) => renderChar(char, charIdx))}
-                </span>
-                {' '}
-            </React.Fragment>
-        );
+    const handleWordClick = (word, e) => {
+        if (!onWordClick) return;
+        if (wordSelectMode || lineSelectMode) {
+            e.stopPropagation();
+        }
+        const cleanWord = word.replace(/[^a-zA-Z0-9'-]/g, '') || word;
+        onWordClick(cleanWord);
     };
 
-    // Split text into paragraphs by any newline(s)
-    // Each line break creates a new paragraph for clear visual separation
-    const paragraphs = inputText.split(/\n/).map(p => p.trim()).filter(Boolean);
+    const isSelectMode = wordSelectMode || lineSelectMode;
 
     return (
         <main className="main-area">
             <div className="main-container">
+                {/* Word select mode banner */}
+                {wordSelectMode && (
+                    <div className="word-select-banner">
+                        <span>👆 Click any word to hear it read aloud</span>
+                    </div>
+                )}
+                {/* Line select mode banner */}
+                {lineSelectMode && (
+                    <div className="word-select-banner line-select-banner">
+                        <span>👆 Click a word to read its sentence aloud</span>
+                    </div>
+                )}
                 <div className="text-container no-scrollbar">
                     <div className="formatted-content" ref={contentRef} style={style}>
-                        {paragraphs.map((paragraph, pIdx) => {
-                            const words = paragraph.split(/\s+/);
+                        {lines.map((line, lineIdx) => {
+                            const words = line.split(/\s+/).filter(Boolean);
+                            if (words.length === 0) {
+                                return <br key={lineIdx} />;
+                            }
                             return (
-                                <p key={pIdx} className="paragraph-block">
-                                    {words.map((word, wordIdx) => renderWord(word, wordIdx))}
-                                </p>
+                                <div
+                                    key={lineIdx}
+                                    className={`text-line paragraph-block ${selectedLineIdx === lineIdx ? 'text-line-selected' : ''}`}
+                                    onClick={() => onLineClick && onLineClick(lineIdx)}
+                                >
+                                    {words.map((word, wordIdx) => (
+                                        <React.Fragment key={wordIdx}>
+                                            <span
+                                                className={`word-clickable ${isSelectMode ? 'word-select-active' : ''}`}
+                                                onClick={(e) => {
+                                                    if (isSelectMode) {
+                                                        handleWordClick(word, e);
+                                                    }
+                                                }}
+                                            >
+                                                {word.split('').map((char, charIdx) => renderChar(char, charIdx))}
+                                            </span>
+                                            {' '}
+                                        </React.Fragment>
+                                    ))}
+                                </div>
                             );
                         })}
                     </div>

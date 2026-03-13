@@ -6,12 +6,14 @@ export default function TalkModal({ isOpen, onClose, targetWord = '', mode = 'wo
     const [isListening, setIsListening] = useState(false);
     const [transcript, setTranscript] = useState('');
     const [feedbackStatus, setFeedbackStatus] = useState('');
+    const [mispronouncedWord, setMispronouncedWord] = useState('');
 
     useEffect(() => {
         if (isOpen) {
             setEntering(true);
             setTranscript('');
             setFeedbackStatus('');
+            setMispronouncedWord(mode === 'word' ? targetWord : '');
             const timer = setTimeout(() => setEntering(false), 20);
             return () => clearTimeout(timer);
         } else {
@@ -72,10 +74,63 @@ export default function TalkModal({ isOpen, onClose, targetWord = '', mode = 'wo
                     setFeedbackStatus('wrong');
                 }
             } else if (mode === 'passage') {
-                if (cleanSpoken && cleanTarget.includes(cleanSpoken)) {
+                // For passage mode, we want to ensure that 'you' doesn't match 'your'.
+                // We split the target into words and check if the spoken phrase exists as a whole sequence of words.
+                const targetWords = cleanTarget.split(/\s+/);
+                const spokenWords = cleanSpoken.split(/\s+/);
+                
+                let isMatch = false;
+                // Check if spokenWords sequence exists as a contiguous block in targetWords
+                for (let i = 0; i <= targetWords.length - spokenWords.length; i++) {
+                    const slice = targetWords.slice(i, i + spokenWords.length);
+                    if (slice.join(' ') === cleanSpoken) {
+                        isMatch = true;
+                        break;
+                    }
+                }
+
+                if (isMatch) {
                     setFeedbackStatus('correct');
+                    setMispronouncedWord('');
                 } else {
                     setFeedbackStatus('wrong');
+                    
+                    const targetWordsArr = cleanTarget.split(/\s+/);
+                    const spokenWordsArr = cleanSpoken.split(/\s+/);
+                    
+                    if (spokenWordsArr.length === 0) {
+                        setMispronouncedWord(targetWordsArr[0]);
+                        return;
+                    }
+
+                    // Best fit alignment logic
+                    let bestWindowIdx = 0;
+                    let maxMatches = -1;
+                    
+                    for (let i = 0; i <= targetWordsArr.length - spokenWordsArr.length; i++) {
+                        let matches = 0;
+                        for (let j = 0; j < spokenWordsArr.length; j++) {
+                            if (targetWordsArr[i + j] === spokenWordsArr[j]) {
+                                matches++;
+                            }
+                        }
+                        // Prioritize windows that start with a match if match counts are equal
+                        if (matches > maxMatches || (matches === maxMatches && targetWordsArr[i] === spokenWordsArr[0])) {
+                            maxMatches = matches;
+                            bestWindowIdx = i;
+                        }
+                    }
+
+                    // Find the first mismatch within the best window
+                    let targetFeedback = targetWordsArr[bestWindowIdx]; // Default to start of window
+                    for (let j = 0; j < spokenWordsArr.length; j++) {
+                        if (targetWordsArr[bestWindowIdx + j] !== spokenWordsArr[j]) {
+                            targetFeedback = targetWordsArr[bestWindowIdx + j];
+                            break;
+                        }
+                    }
+                    
+                    setMispronouncedWord(targetFeedback || targetWordsArr[0]);
                 }
             }
         };
@@ -95,10 +150,8 @@ export default function TalkModal({ isOpen, onClose, targetWord = '', mode = 'wo
 
     const playCorrectPronunciation = () => {
         if ('speechSynthesis' in window) {
-            // In word mode, play the target word. 
-            // In passage mode, play what they ACTUALLY said so they can hear their mistake, 
-            // since we don't know exactly which part of the passage they were aiming for.
-            const textToPlay = mode === 'word' ? targetWord : transcript;
+            // Play only the specific mispronounced word (or the target word in word mode)
+            const textToPlay = mispronouncedWord || targetWord;
             const utterance = new SpeechSynthesisUtterance(textToPlay);
             utterance.lang = 'en-IN'; // Request Indian English
 
@@ -169,7 +222,7 @@ export default function TalkModal({ isOpen, onClose, targetWord = '', mode = 'wo
                             onClick={playCorrectPronunciation}
                             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.5rem 1rem', background: '#e0e0e0', color: '#333', border: 'none', borderRadius: '4px', cursor: 'pointer', width: '100%', marginBottom: '0' }}
                         >
-                            <Volume2 size={18} /> {mode === 'passage' ? 'Hear what you said' : 'Hear correct pronunciation'}
+                            <Volume2 size={18} /> Hear correct pronunciation
                         </button>
                     </div>
                 )}

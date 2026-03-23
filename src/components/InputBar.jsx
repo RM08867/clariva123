@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { FilePlus, Camera, Image, Volume2, Mic, Settings, Send } from 'lucide-react';
 import { extractTextFromImage, extractTextFromPdf } from '../utils/api';
-
+import { incrementFeatureCount } from '../utils/supabase';
 export default function InputBar({
     inputText,
     onTextChange,
@@ -164,8 +164,7 @@ export default function InputBar({
                     <Volume2 />
                 </button>
                 <button className="mic-btn" onClick={() => {
-                    const sttCount = parseInt(localStorage.getItem('stt')) || 0;
-                    localStorage.setItem('stt', sttCount + 1);
+                    incrementFeatureCount('stt');
                     onOpenTalkModal();
                 }} title="Voice Input">
                     <Mic />

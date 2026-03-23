@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../utils/supabase';
 
 export default function AdminDashboardPage() {
     const navigate = useNavigate();
@@ -10,11 +11,29 @@ export default function AdminDashboardPage() {
             navigate('/admin');
             return;
         }
-        setStats({
-            visits: parseInt(localStorage.getItem('visits')) || 0,
-            tts: parseInt(localStorage.getItem('tts')) || 0,
-            stt: parseInt(localStorage.getItem('stt')) || 0,
-        });
+
+        const fetchStats = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('feature_usage')
+                    .select('visits, tts, stt')
+                    .eq('id', 1)
+                    .single();
+                
+                if (error) throw error;
+                if (data) {
+                    setStats({
+                        visits: data.visits || 0,
+                        tts: data.tts || 0,
+                        stt: data.stt || 0,
+                    });
+                }
+            } catch (err) {
+                console.error("Error fetching stats:", err);
+            }
+        };
+
+        fetchStats();
     }, [navigate]);
 
     const handleLogout = () => {

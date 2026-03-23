@@ -14,6 +14,7 @@ import IntroPage from './pages/IntroPage';
 import FeaturesPage from './pages/FeaturesPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import { incrementFeatureCount } from './utils/supabase';
 
 /**
  * Extract the sentence containing the clicked word from the full text,
@@ -67,8 +68,7 @@ function ReaderPage() {
     const playbackTypeRef = useRef(null);
 
     useEffect(() => {
-        const currentVisits = parseInt(localStorage.getItem('visits')) || 0;
-        localStorage.setItem('visits', currentVisits + 1);
+        incrementFeatureCount('visits');
     }, []);
     const formattedContentRef = useRef(null);
 
@@ -135,8 +135,7 @@ function ReaderPage() {
     const speakText = useCallback(async (text) => {
         stopPlayback();
 
-        const ttsCount = parseInt(localStorage.getItem('tts')) || 0;
-        localStorage.setItem('tts', ttsCount + 1);
+        incrementFeatureCount('tts');
 
         setIsLoading(true);
         setStatusMsg('Generating voice...');
@@ -241,6 +240,7 @@ function ReaderPage() {
     }, []);
 
     const handleWordClick = useCallback(async (word, lineIdx, wordIdx) => {
+        incrementFeatureCount('stt');
         if (lineSelectMode) {
             setLineSelectMode(false);
             setStatusMsg('');
@@ -294,7 +294,10 @@ function ReaderPage() {
                 isOpen={drawerOpen}
                 onClose={() => setDrawerOpen(false)}
                 preferences={preferences}
-                onUpdatePreferences={setPreferences}
+                onUpdatePreferences={(newPrefs) => {
+                    incrementFeatureCount('visits');
+                    setPreferences(newPrefs);
+                }}
                 onReset={handleReset}
             />
 

@@ -7,11 +7,16 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 
 /**
  * Increment a specific feature count in the feature_usage table.
+ * Falls back to localStorage if Supabase is unreachable.
  * @param {'visits' | 'tts' | 'stt'} featureColumn The column to increment
  */
 export const incrementFeatureCount = async (featureColumn) => {
+    // Always update localStorage as a local backup
+    const localCount = parseInt(localStorage.getItem(featureColumn)) || 0;
+    localStorage.setItem(featureColumn, localCount + 1);
+
     try {
-        // Fetch current count
+        // Fetch current count from Supabase
         const { data, error: fetchError } = await supabase
             .from('feature_usage')
             .select(featureColumn)
@@ -23,16 +28,16 @@ export const incrementFeatureCount = async (featureColumn) => {
         const currentCount = data[featureColumn] || 0;
 
         // Update with incremented count
-        const updatePayload = { [featureColumn]: currentCount + 1 };
         const { error: updateError } = await supabase
             .from('feature_usage')
-            .update(updatePayload)
+            .update({ [featureColumn]: currentCount + 1 })
             .eq('id', 1);
 
         if (updateError) throw updateError;
-        
-        console.log(`Incremented ${featureColumn} successfully.`);
+
+        console.log(`✅ Incremented ${featureColumn} in Supabase: ${currentCount + 1}`);
     } catch (err) {
-        console.error(`Error incrementing ${featureColumn}:`, err);
+        // Supabase failed but localStorage is already updated above
+        console.warn(`⚠️ Supabase update failed for "${featureColumn}", using localStorage fallback.`, err.message);
     }
 };

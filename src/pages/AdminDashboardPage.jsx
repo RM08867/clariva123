@@ -29,7 +29,13 @@ export default function AdminDashboardPage() {
                     });
                 }
             } catch (err) {
-                console.error("Error fetching stats:", err);
+                // Supabase is offline - fall back to localStorage
+                console.warn("Supabase unavailable, using localStorage fallback:", err.message);
+                setStats({
+                    visits: parseInt(localStorage.getItem('visits')) || 0,
+                    tts: parseInt(localStorage.getItem('tts')) || 0,
+                    stt: parseInt(localStorage.getItem('stt')) || 0,
+                });
             }
         };
 

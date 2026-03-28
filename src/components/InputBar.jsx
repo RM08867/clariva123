@@ -26,12 +26,7 @@ export default function InputBar({
         onTextChange(e.target.value);
     };
 
-    const handleKeyDown = (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            if (inputText.trim()) onSend();
-        }
-    };
+
 
     /**
      * Handles image files from gallery upload.
@@ -307,10 +302,9 @@ export default function InputBar({
 
                 <textarea
                     className="text-input"
-                    placeholder="Type or scan text... (Enter to send, Shift+Enter for new line)"
+                    placeholder="Type or scan text... (Press Send button to format)"
                     value={inputText}
                     onChange={handleTextInput}
-                    onKeyDown={handleKeyDown}
                     rows={2}
                 />
 

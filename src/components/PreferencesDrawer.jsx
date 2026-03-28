@@ -52,6 +52,21 @@ export default function PreferencesDrawer({ isOpen, onClose, preferences, onUpda
                     ))}
                 </div>
             </div>
+            <div className="section-group">
+                <label className="section-label">Voice Accent</label>
+                <div className="font-grid">
+                    {DATASET.accents.map((a) => (
+                        <button
+                            key={a.id}
+                            className={`font-btn ${preferences.voice_accent === a.id ? 'active' : ''}`}
+                            onClick={() => updatePref('voice_accent', a.id)}
+                            style={{ fontSize: '0.8rem' }}
+                        >
+                            {a.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
             <div className="sliders-grid">
                 {renderSlider('Font Size', DATASET.font_size.min, DATASET.font_size.max, 1, preferences.font_size, (v) => updatePref('font_size', v))}
                 {renderSlider('Line Spacing', 1.2, 2.5, 0.1, preferences.line_spacing, (v) => updatePref('line_spacing', v))}

@@ -6,6 +6,8 @@ import PreferencesDrawer from './components/PreferencesDrawer';
 import InputBar from './components/InputBar';
 import TalkModal from './components/TalkModal';
 import SpeakerModal from './components/SpeakerModal';
+import MicOptionsModal from './components/MicOptionsModal';
+import WordOptionsModal from './components/WordOptionsModal';
 import PlaybackControls from './components/PlaybackControls';
 import { DEFAULT_PREFS } from './data/defaults';
 import { generateTTS } from './utils/api';
@@ -51,10 +53,14 @@ function ReaderPage() {
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [talkModalOpen, setTalkModalOpen] = useState(false);
     const [speakerModalOpen, setSpeakerModalOpen] = useState(false);
+    const [wordOptionsModalOpen, setWordOptionsModalOpen] = useState(false);
+    const [micOptionsModalOpen, setMicOptionsModalOpen] = useState(false);
     const [wordSelectMode, setWordSelectMode] = useState(false);
     const [lineSelectMode, setLineSelectMode] = useState(false);
+    const [selectionMode, setSelectionMode] = useState('pronounce'); // 'read' or 'pronounce'
     const [selectedLineIdx, setSelectedLineIdx] = useState(null);
     const [selectedWord, setSelectedWord] = useState('');
+    const [selectedWordData, setSelectedWordData] = useState({ word: '', sentence: '', lineIdx: 0, wordIdx: 0 });
     const [talkMode, setTalkMode] = useState('word');
     const [isLoading, setIsLoading] = useState(false);
     const [statusMsg, setStatusMsg] = useState('');
@@ -66,6 +72,8 @@ function ReaderPage() {
     const audioRef = useRef(null);
     const utteranceRef = useRef(null);
     const playbackTypeRef = useRef(null);
+    const currentCharIndexRef = useRef(0);
+    const currentTextRef = useRef('');
 
     useEffect(() => {
         incrementFeatureCount('visits');
@@ -126,13 +134,57 @@ function ReaderPage() {
         setPlaybackSpeed(newSpeed);
         if (playbackTypeRef.current === 'audio' && audioRef.current) {
             audioRef.current.playbackRate = newSpeed;
+        } else if (playbackTypeRef.current === 'browser' && window.speechSynthesis) {
+            // Web Speech API doesn't support live rate changes, so we restart from current index
+            window.speechSynthesis.cancel();
+            
+            const targetLang = preferences.voice_accent || 'en-IN';
+            const remainingText = currentTextRef.current.slice(currentCharIndexRef.current);
+            if (remainingText.trim()) {
+                const utterance = new SpeechSynthesisUtterance(remainingText);
+                utterance.lang = targetLang;
+                utterance.rate = newSpeed;
+                utterance.pitch = 1;
+
+                const voices = window.speechSynthesis.getVoices();
+                const indianVoice = voices.find(v => v.lang === targetLang)
+                    || voices.find(v => v.lang.startsWith(targetLang))
+                    || voices.find(v => v.lang.toLowerCase().includes('in'))
+                    || voices.find(v => v.lang.toLowerCase().includes('hi'));
+                if (indianVoice) {
+                    utterance.voice = indianVoice;
+                }
+
+                const sliceStart = currentCharIndexRef.current;
+                utterance.onboundary = (event) => {
+                    // event.charIndex is relative to the remainingText
+                    currentCharIndexRef.current = sliceStart + event.charIndex;
+                };
+
+                utterance.onend = () => {
+                    if (window.speechSynthesis.speaking) return; // Ignore if another one started
+                    setIsPlaying(false);
+                    setShowPlaybackControls(false);
+                    playbackTypeRef.current = null;
+                    utteranceRef.current = null;
+                };
+
+                utterance.onerror = () => {
+                    setIsPlaying(false);
+                    setShowPlaybackControls(false);
+                };
+
+                utteranceRef.current = utterance;
+                window.speechSynthesis.speak(utterance);
+            }
         }
-    }, []);
+    }, [playbackSpeed]);
 
     /**
      * Core TTS function — tries Gemini first, falls back to browser Speech API.
      */
     const speakText = useCallback(async (text) => {
+        if (!text) return;
         stopPlayback();
 
         incrementFeatureCount('tts');
@@ -172,6 +224,9 @@ function ReaderPage() {
             setIsLoading(false);
 
             try {
+                currentTextRef.current = text;
+                currentCharIndexRef.current = 0;
+
                 await new Promise((resolve, reject) => {
                     if (!window.speechSynthesis) {
                         reject(new Error('Speech synthesis not supported'));
@@ -179,15 +234,17 @@ function ReaderPage() {
                     }
                     window.speechSynthesis.cancel();
 
+                    const targetLang = preferences.voice_accent || 'en-IN';
                     const utterance = new SpeechSynthesisUtterance(text);
-                    utterance.lang = 'en-IN';
+                    utterance.lang = targetLang;
                     utterance.rate = playbackSpeed;
                     utterance.pitch = 1;
 
                     const voices = window.speechSynthesis.getVoices();
-                    const indianVoice = voices.find(v => v.lang === 'en-IN')
-                        || voices.find(v => v.lang.startsWith('en-IN'))
-                        || voices.find(v => v.lang === 'hi-IN');
+                    const indianVoice = voices.find(v => v.lang === targetLang)
+                        || voices.find(v => v.lang.startsWith(targetLang))
+                        || voices.find(v => v.lang.toLowerCase().includes('in'))
+                        || voices.find(v => v.lang.toLowerCase().includes('hi'));
                     if (indianVoice) {
                         utterance.voice = indianVoice;
                     }
@@ -197,7 +254,16 @@ function ReaderPage() {
                     setIsPlaying(true);
                     setShowPlaybackControls(true);
 
+                    utterance.onboundary = (event) => {
+                        currentCharIndexRef.current = event.charIndex;
+                    };
+
                     utterance.onend = () => {
+                        // If we are still speaking (e.g. because of a speed-change restart), 
+                        // don't resolve yet or clean up state that might be used by the new utterance.
+                        // However, since handleSpeedChange replaces utteranceRef.current, we check if this is still the active one.
+                        if (utteranceRef.current !== utterance) return;
+
                         setIsPlaying(false);
                         setShowPlaybackControls(false);
                         playbackTypeRef.current = null;
@@ -205,6 +271,7 @@ function ReaderPage() {
                         resolve();
                     };
                     utterance.onerror = (e) => {
+                        if (utteranceRef.current !== utterance) return;
                         setIsPlaying(false);
                         setShowPlaybackControls(false);
                         reject(e);
@@ -227,37 +294,53 @@ function ReaderPage() {
         await speakText(text);
     }, [speakText]);
 
-    const handleStartWordSelect = useCallback(() => {
+    const handleStartWordSelect = useCallback((mode = 'read') => {
+        setSelectionMode(mode);
         setWordSelectMode(true);
         setLineSelectMode(false);
-        setStatusMsg('Click a word to check pronunciation');
+        setStatusMsg(mode === 'read' ? 'Click a word to read it aloud' : 'Click a word to check pronunciation');
     }, []);
 
-    const handleStartLineSelect = useCallback(() => {
+    const handleStartLineSelect = useCallback((mode = 'read') => {
+        setSelectionMode(mode);
         setLineSelectMode(true);
         setWordSelectMode(false);
-        setStatusMsg('Click a word to check sentence pronunciation');
+        setStatusMsg(mode === 'read' ? 'Click a word to read its sentence' : 'Click a word to check sentence pronunciation');
     }, []);
 
     const handleWordClick = useCallback(async (word, lineIdx, wordIdx) => {
         incrementFeatureCount('stt');
-        if (lineSelectMode) {
+        if (lineSelectMode || wordSelectMode) {
+            const isLine = lineSelectMode;
+            const isRead = selectionMode === 'read';
+
             setLineSelectMode(false);
-            setStatusMsg('');
-            // Use contextual search to resolve duplicate words
-            const sentence = findSentenceByContext(displayText, word, lineIdx, wordIdx);
-            setSelectedWord(sentence);
-            setTalkMode('passage');
-            setTalkModalOpen(true);
-        } else {
-            // Default behavior: open talk modal for this word
             setWordSelectMode(false);
             setStatusMsg('');
+
+            const targetText = isLine ? findSentenceByContext(displayText, word, lineIdx, wordIdx) : word;
+
+            if (isRead) {
+                await speakText(targetText);
+            } else {
+                setSelectedWord(targetText);
+                setTalkMode(isLine ? 'passage' : 'word');
+                setTalkModalOpen(true);
+            }
+        } else {
+            // Default click opens options modal
+            const sentence = findSentenceByContext(displayText, word, lineIdx, wordIdx);
+            setSelectedWordData({ word, sentence, lineIdx, wordIdx });
             setSelectedWord(word);
-            setTalkMode('word');
-            setTalkModalOpen(true);
+            setWordOptionsModalOpen(true);
         }
-    }, [lineSelectMode, displayText]);
+    }, [lineSelectMode, wordSelectMode, selectionMode, displayText, findSentenceByContext, speakText]);
+
+    const handleWordLongPress = useCallback((word, lineIdx, wordIdx) => {
+        const sentence = findSentenceByContext(displayText, word, lineIdx, wordIdx);
+        setSelectedWordData({ word, sentence, lineIdx, wordIdx });
+        setWordOptionsModalOpen(true);
+    }, [displayText]);
 
     return (
         <div className="reader-layout">
@@ -274,6 +357,7 @@ function ReaderPage() {
                 inputText={displayText}
                 contentRef={formattedContentRef}
                 onWordClick={handleWordClick}
+                onWordLongPress={handleWordLongPress}
                 wordSelectMode={wordSelectMode}
                 lineSelectMode={lineSelectMode}
                 selectedLineIdx={selectedLineIdx}
@@ -306,12 +390,8 @@ function ReaderPage() {
                 onTextChange={setInputText}
                 onSend={handleSend}
                 onOpenDrawer={() => setDrawerOpen(true)}
-                onOpenTalkModal={() => {
-                    setSelectedWord(displayText || inputText);
-                    setTalkMode('passage');
-                    setTalkModalOpen(true);
-                }}
-                onOpenSpeakerModal={() => setSpeakerModalOpen(true)}
+                onOpenTalkModal={() => setMicOptionsModalOpen(true)}
+                onOpenSpeakerModal={() => speakText(displayText)}
                 setLoading={setIsLoading}
                 setStatus={setStatusMsg}
             />
@@ -321,6 +401,7 @@ function ReaderPage() {
                 onClose={() => setTalkModalOpen(false)}
                 targetWord={selectedWord}
                 mode={talkMode}
+                preferences={preferences}
                 onTranscriptConfirm={(newText) => {
                     setInputText(inputText + ' ' + newText);
                     setTalkModalOpen(false);
@@ -332,8 +413,27 @@ function ReaderPage() {
                 onClose={() => setSpeakerModalOpen(false)}
                 fullText={displayText}
                 onReadAloud={handleReadAloud}
-                onStartWordSelect={handleStartWordSelect}
-                onStartLineSelect={handleStartLineSelect}
+                onStartWordSelect={() => handleStartWordSelect('read')}
+                onStartLineSelect={() => handleStartLineSelect('read')}
+            />
+
+            <MicOptionsModal
+                isOpen={micOptionsModalOpen}
+                onClose={() => setMicOptionsModalOpen(false)}
+                onStartWordPronounce={() => handleStartWordSelect('pronounce')}
+                onStartSentencePronounce={() => handleStartLineSelect('pronounce')}
+            />
+
+            <WordOptionsModal
+                isOpen={wordOptionsModalOpen}
+                onClose={() => setWordOptionsModalOpen(false)}
+                word={selectedWordData.word}
+                sentence={selectedWordData.sentence}
+                onSpeak={speakText}
+                onStop={stopPlayback}
+                onSpeedChange={handleSpeedChange}
+                currentSpeed={playbackSpeed}
+                preferences={preferences}
             />
         </div>
     );

@@ -10,6 +10,7 @@ export default function TextDisplay({
     lineSelectMode,
     selectedLineIdx,
     onLineClick,
+    onWordLongPress,
 }) {
     // Split text into lines (by newline), then each line into words
     const lines = inputText.split('\n');
@@ -55,6 +56,26 @@ export default function TextDisplay({
         onWordClick(cleanWord, lineIdx, wordIdx);
     };
 
+    const [longPressTimer, setLongPressTimer] = React.useState(null);
+
+    const handlePointerDown = (word, lineIdx, wordIdx, e) => {
+        const timer = setTimeout(() => {
+            if (onWordLongPress) {
+                const cleanWord = word.replace(/[^a-zA-Z0-9'-]/g, '') || word;
+                onWordLongPress(cleanWord, lineIdx, wordIdx);
+            }
+            setLongPressTimer(null);
+        }, 500); // 500ms for long press
+        setLongPressTimer(timer);
+    };
+
+    const handlePointerUp = () => {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            setLongPressTimer(null);
+        }
+    };
+
     const isSelectMode = wordSelectMode || lineSelectMode;
 
     return (
@@ -90,6 +111,10 @@ export default function TextDisplay({
                                             <span
                                                 className={`word-clickable ${isSelectMode ? 'word-select-active' : ''}`}
                                                 onClick={(e) => handleWordClick(word, lineIdx, wordIdx, e)}
+                                                onPointerDown={(e) => handlePointerDown(word, lineIdx, wordIdx, e)}
+                                                onPointerUp={handlePointerUp}
+                                                onPointerLeave={handlePointerUp}
+                                                style={{ touchAction: 'none' }}
                                             >
                                                 {word.split('').map((char, charIdx) => renderChar(char, charIdx))}
                                             </span>

@@ -260,16 +260,17 @@ body {
 .drawer-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.08);
   z-index: 40;
   opacity: 0;
   transition: opacity 0.3s;
   cursor: pointer;
+  pointer-events: none;
 }
 
 .drawer-overlay.visible {
   opacity: 1;
+  pointer-events: auto;
 }
 
 /* --- Preference Drawer --- */
@@ -1710,4 +1711,71 @@ body {
 .word-select-active {
   background-color: rgba(37, 99, 235, 0.15);
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
-}
+}
+
+.modal-action-btn {
+  padding: 12px 20px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+}
+
+.modal-action-btn:hover {
+  background: #1d4ed8;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);
+}
+
+.modal-stop-btn {
+  margin-top: 8px;
+  padding: 12px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.modal-stop-btn:hover {
+  background: #dc2626;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.modal-back-btn {
+  margin-top: 16px;
+  background: none;
+  border: none;
+  color: #64748b;
+  font-weight: 700;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  width: 100%;
+  padding: 8px;
+}
+
+.modal-back-btn:hover {
+  color: #1e293b;
+}
+
+input[type="range"] {
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+

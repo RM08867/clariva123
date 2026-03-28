@@ -58,4 +58,11 @@ export const DATASET = {
         tail_letters: ["g", "y"],
         similar_numbers: ["6", "9"],
     },
+    
+    accents: [
+        { id: "en-IN", label: "Indian English" },
+        { id: "hi-IN", label: "Hindi" },
+        { id: "en-US", label: "US English" },
+        { id: "en-GB", label: "UK English" },
+    ],
 };
